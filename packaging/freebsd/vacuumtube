@@ -1,0 +1,12 @@
+#!/bin/sh
+# VacuumTube launcher script for GhostBSD / FreeBSD
+
+for el in electron44 electron43 electron42 electron41 electron40 electron; do
+    if command -v "$el" >/dev/null 2>&1; then
+        exec "$el" /usr/local/share/vacuumtube "$@"
+    fi
+done
+
+echo "Error: Electron was not found in PATH." >&2
+echo "Please install electron by running: sudo pkg install electron42" >&2
+exit 1

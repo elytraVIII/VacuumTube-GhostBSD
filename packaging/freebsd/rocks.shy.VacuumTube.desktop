@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=VacuumTube
+GenericName=YouTube Client
+Comment=Watch and explore videos on YouTube
+Exec=vacuumtube %U
+Icon=rocks.shy.VacuumTube
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Player;
+MimeType=x-scheme-handler/vnd.youtube.leanback;
+StartupWMClass=VacuumTube

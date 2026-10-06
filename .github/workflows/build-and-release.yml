@@ -7,6 +7,7 @@ permissions:
 on:
   release:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -45,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}        
 
       - name: Upload Windows artifacts to release
-        if: matrix.platform == 'windows'
+        if: matrix.platform == 'windows' && github.event_name == 'release'
         run: |
           gh release upload ${{ github.event.release.tag_name }} dist/VacuumTube-Setup.exe --clobber
           gh release upload ${{ github.event.release.tag_name }} dist/VacuumTube-Setup.exe.blockmap --clobber
@@ -56,7 +57,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Mac artifacts to release
-        if: matrix.platform == 'mac'
+        if: matrix.platform == 'mac' && github.event_name == 'release'
         run: |
           gh release upload ${{ github.event.release.tag_name }} dist/VacuumTube-x64.dmg --clobber
           gh release upload ${{ github.event.release.tag_name }} dist/VacuumTube-arm64.dmg --clobber
@@ -69,7 +70,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Linux artifacts to release
-        if: matrix.platform == 'linux'
+        if: matrix.platform == 'linux' && github.event_name == 'release'
         run: |
           gh release upload ${{ github.event.release.tag_name }} dist/VacuumTube-amd64.deb --clobber
           gh release upload ${{ github.event.release.tag_name }} dist/VacuumTube-arm64.deb --clobber
@@ -81,3 +82,81 @@ jobs:
           gh release upload ${{ github.event.release.tag_name }} dist/latest-linux-arm64.yml --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-freebsd:
+    runs-on: ubuntu-latest
+    name: Build for GhostBSD / FreeBSD
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build FreeBSD Package
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y node22 npm-node22 git
+          run: |
+            VERSION=$(node -p "require('./package.json').version")
+            echo "Building VacuumTube v${VERSION} for GhostBSD / FreeBSD"
+
+            # Install production dependencies
+            npm ci --omit=dev
+
+            # Setup staging directory hierarchy
+            STAGING="staging"
+            PREFIX="/usr/local"
+            APP_DIR="${STAGING}${PREFIX}/share/vacuumtube"
+            BIN_DIR="${STAGING}${PREFIX}/bin"
+            DESKTOP_DIR="${STAGING}${PREFIX}/share/applications"
+            ICONS_DIR="${STAGING}${PREFIX}/share/icons/hicolor/scalable/apps"
+
+            mkdir -p "${APP_DIR}" "${BIN_DIR}" "${DESKTOP_DIR}" "${ICONS_DIR}"
+
+            # Copy application files
+            cp -r src "${APP_DIR}/"
+            cp -r assets "${APP_DIR}/"
+            cp -r locale "${APP_DIR}/"
+            cp -r node_modules "${APP_DIR}/"
+            cp package.json "${APP_DIR}/"
+
+            # Install desktop entry and icon
+            cp packaging/freebsd/rocks.shy.VacuumTube.desktop "${DESKTOP_DIR}/"
+            cp assets/icon.svg "${ICONS_DIR}/rocks.shy.VacuumTube.svg"
+
+            # Install executable launcher script
+            cp packaging/freebsd/vacuumtube "${BIN_DIR}/vacuumtube"
+            chmod 755 "${BIN_DIR}/vacuumtube"
+
+            # Prepare metadata
+            mkdir -p meta
+            cp packaging/freebsd/+MANIFEST meta/+MANIFEST
+            sed -i "" "s/%%VERSION%%/${VERSION}/g" meta/+MANIFEST
+
+            # Generate plist with paths relative to prefix /usr/local
+            (cd staging && find usr/local -type f -o -type l | sed 's|^/usr/local/||; s|^usr/local/||') > meta/plist
+
+            # Build the .pkg package
+            pkg create -m meta/ -r staging/ -p meta/plist -o .
+
+            # Also create standalone tarball
+            tar -czf "VacuumTube-v${VERSION}-freebsd-x64.tar.gz" -C staging/usr/local .
+
+            ls -la *.pkg *.tar.gz
+
+      - name: Upload FreeBSD artifacts to release
+        if: github.event_name == 'release'
+        run: |
+          for f in *.pkg *.tar.gz; do
+            [ -f "$f" ] && gh release upload ${{ github.event.release.tag_name }} "$f" --clobber
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts (Actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: VacuumTube-GhostBSD-FreeBSD
+          path: |
+            *.pkg
+            *.tar.gz

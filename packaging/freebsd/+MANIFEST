@@ -1,0 +1,17 @@
+name: "vacuumtube"
+version: "%%VERSION%%"
+origin: "multimedia/vacuumtube"
+comment: "YouTube for TV, on your PC (GhostBSD / FreeBSD)"
+desc: "VacuumTube is an open-source desktop wrapper for YouTube Leanback, featuring adblocking, controller support, and performance optimizations."
+maintainer: "elytraVIII@gmail.com"
+www: "https://github.com/elytraVIII/VacuumTube"
+prefix: "/usr/local"
+categories: ["multimedia"]
+licenselogic: "single"
+licenses: ["MIT"]
+deps: {
+  electron42: {
+    origin: "devel/electron42",
+    version: "42.0.0"
+  }
+}
